@@ -423,14 +423,10 @@ static int tk_mutex (lua_State *L)
   lua_pushinteger(L, 122);
   tk_lua_callmod(L, 3, 1, "santoku.random", "str");
 
-  lua_pushinteger(L, 32);
-  lua_pushinteger(L, 97);
-  lua_pushinteger(L, 122);
-  tk_lua_callmod(L, 3, 1, "santoku.random", "str");
-
   char sem_path[33];
 
-  sprintf(sem_path, "/%s", luaL_checkstring(L, 2));
+  sprintf(sem_path, "/%s", luaL_checkstring(L, 1));
+  lua_pop(L, 1);
 
   sem_t* sem = sem_open(sem_path, O_CREAT, 0666, 1);
 
