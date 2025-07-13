@@ -474,6 +474,7 @@ int luaopen_santoku_system_posix (lua_State *L)
   luaL_register(L, NULL, tk_fns);
   lua_pushinteger(L, BUFSIZ);
   lua_setfield(L, -2, "BUFSIZ");
+#ifndef __ANDROID__
   luaL_newmetatable(L, MT_ATOM);
   lua_pushcfunction(L, tk_atom_destroy);
   lua_setfield(L, -2, "__gc");
@@ -482,5 +483,6 @@ int luaopen_santoku_system_posix (lua_State *L)
   lua_pushcfunction(L, tk_mutex_destroy);
   lua_setfield(L, -2, "__gc");
   lua_pop(L, 1);
+#endif
   return 1;
 }
