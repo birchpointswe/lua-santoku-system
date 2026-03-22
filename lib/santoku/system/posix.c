@@ -9,9 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
 static int tk_ppid (lua_State *);
 
@@ -102,6 +105,7 @@ static int tk_fork (lua_State *L)
     lua_pushinteger(L, pid);
     return 1;
   }
+#ifdef __linux__
   if (prctl(PR_SET_PDEATHSIG, SIGHUP))
     return tk_lua_errno(L, errno);
   tk_ppid(L);
@@ -109,6 +113,7 @@ static int tk_fork (lua_State *L)
   lua_pop(L, 1);
   if (ppid != ppid0)
     return tk_lua_error(L, "parent exited before prctl");
+#endif
   lua_pushinteger(L, pid);
   return 1;
 }
@@ -168,10 +173,15 @@ static int tk_pid (lua_State *L) {
   return 1;
 }
 
-
 static int tk_ppid (lua_State *L) {
   lua_Integer n = luaL_optinteger(L, 1, -1);
   pid_t pid = n < 0 ? getpid() : n;
+#ifndef __linux__
+  if (pid != getpid())
+    return tk_lua_error(L, "ppid(pid) is only supported on linux");
+  lua_pushinteger(L, getppid());
+  return 1;
+#else
   int ppid;
   char buf[BUFSIZ * 2];
   char procname[32];
@@ -181,7 +191,6 @@ static int tk_ppid (lua_State *L) {
   if (fp != NULL) {
     size_t ret = fread(buf, sizeof(char), BUFSIZ * 2 - 1, fp);
     if (!ret) {
-
       return 0;
     } else {
       buf[ret++] = '\0';
@@ -197,9 +206,9 @@ static int tk_ppid (lua_State *L) {
     lua_pushinteger(L, ppid);
     return 1;
   } else {
-
     return 0;
   }
+#endif
 }
 
 #ifndef __ANDROID__

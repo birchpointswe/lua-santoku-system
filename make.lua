@@ -1,13 +1,13 @@
 local env = {
   name = "santoku-system",
-  version = "0.0.61-1",
+  version = "0.0.62-1",
   variable_prefix = "TK_SYSTEM",
   license = "MIT",
   public = true,
   cflags = { "-pthread", "-I$(shell luarocks show santoku --rock-dir)/include/", },
-  ldflags = { "-pthread", "-lrt" },
+  ldflags = { "-pthread", "$(shell uname -s | grep -q Linux && echo '-lrt')" },
   dependencies = {
-    "lua >= 5.1",
+    "lua == 5.1",
     "santoku >= 0.0.310-1",
   },
 }
