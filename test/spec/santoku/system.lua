@@ -160,6 +160,44 @@ test("file not found", function ()
   end, sys.pread({ "__not_a_program__", stderr = true }))))
 end)
 
+test("stream closing before its sibling", function ()
+  assert(teq({
+    { "stderr", "tail\n" },
+    { "exit", "exited", 3 },
+  }, imap(function (t, _, ...)
+    return { t, ... }
+  end, sys.pread({
+    "sh", "-c", "exec 1>&-; sleep 0.5; echo tail >&2; exit 3",
+    bufsize = 500, stderr = true,
+  }))))
+end)
+
+test("descriptors released to the caller", function ()
+
+  local a, b = sys.pipe()
+  sys.close(a)
+  sys.close(b)
+
+  local it = sys.pread({ "sh", "-c", "echo x; echo y >&2", stderr = true })
+  while it() do end
+
+  local c, d = sys.pipe()
+  sys.close(c)
+  sys.close(d)
+
+  assert(c == a)
+  assert(d == b)
+
+end)
+
+test("exit reported without any watched stream", function ()
+  assert(teq({
+    { "exit", "exited", 7 },
+  }, imap(function (t, _, ...)
+    return { t, ... }
+  end, sys.pread({ "sh", "-c", "exit 7", stdout = false }))))
+end)
+
 test("sleep", function ()
   sys.sleep(0.25)
 end)

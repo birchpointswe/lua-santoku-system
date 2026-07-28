@@ -35,10 +35,12 @@ local function run_child (opts, job, sr, sw, er, ew)
     if opts.stdout then
       close(sr)
       dup2(sw, 1)
+      close(sw)
     end
     if opts.stderr then
       close(er)
       dup2(ew, 2)
+      close(ew)
     end
   end
 
@@ -81,7 +83,19 @@ end
 local function run_parent_loop (opts, children, fds, fd_child)
 
   local active = #children
-  local done = {}
+  local unwatched = {}
+
+  for i = 1, #children do
+    if children[i].open == 0 then
+      arr.push(unwatched, children[i])
+    end
+  end
+
+  local function release (fd)
+    fds[fd] = nil
+    fd_child[fd] = nil
+    close(fd)
+  end
 
   local function helper ()
 
@@ -93,7 +107,18 @@ local function run_parent_loop (opts, children, fds, fd_child)
       local c = children[1]
       local _, reason, status = wait(c.pid)
       active = 0
+      for fd in pairs(fds) do
+        release(fd)
+      end
       return "exit", c.pid, reason, status
+    end
+
+    local u = unwatched[#unwatched]
+    if u then
+      unwatched[#unwatched] = nil
+      active = active - 1
+      local _, reason, status = wait(u.pid)
+      return "exit", u.pid, reason, status
     end
 
     poll(fds)
@@ -106,16 +131,14 @@ local function run_parent_loop (opts, children, fds, fd_child)
           (fd == c.sr and "stdout") or
           (fd == c.er and "stderr") or "unknown",
             c.pid, res
-      elseif cfg.revents.HUP then
+      elseif cfg.revents.HUP or cfg.revents.ERR or cfg.revents.NVAL then
         local c = fd_child[fd]
-        if not done[c] then
-          c.closed = (c.closed or 0) + 1
-          if c.closed >= 2 then
-            active = active - 1
-            done[c] = true
-            local _, reason, status = wait(c.pid)
-            return "exit", c.pid, reason, status
-          end
+        release(fd)
+        c.open = c.open - 1
+        if c.open == 0 then
+          active = active - 1
+          local _, reason, status = wait(c.pid)
+          return "exit", c.pid, reason, status
         end
       end
     end
@@ -135,15 +158,18 @@ local function run_parent (opts, children)
 
   for i = 1, #children do
     local c = children[i]
+    c.open = 0
     if opts.stdout then
       close(c.sw)
       fds[c.sr] = { events = { IN = true } }
       fd_child[c.sr] = c
+      c.open = c.open + 1
     end
     if opts.stderr then
       close(c.ew)
       fds[c.er] = { events = { IN = true } }
       fd_child[c.er] = c
+      c.open = c.open + 1
     end
   end
 

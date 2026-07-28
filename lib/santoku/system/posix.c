@@ -71,6 +71,15 @@ static int tk_pipe (lua_State *L)
   int rc = pipe(fds);
   if (rc == -1)
     return tk_lua_errno(L, errno);
+  for (int i = 0; i < 2; i ++) {
+    int fl = fcntl(fds[i], F_GETFD);
+    if (fl == -1 || fcntl(fds[i], F_SETFD, fl | FD_CLOEXEC) == -1) {
+      int err = errno;
+      close(fds[0]);
+      close(fds[1]);
+      return tk_lua_errno(L, err);
+    }
+  }
   lua_pushinteger(L, fds[0]);
   lua_pushinteger(L, fds[1]);
   return 2;
