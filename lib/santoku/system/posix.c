@@ -27,7 +27,6 @@ static int tk_close (lua_State *L)
   return 0;
 }
 
-
 static int tk_read (lua_State *L)
 {
   int fd = luaL_checkinteger(L, -2);
@@ -87,20 +86,31 @@ static int tk_pipe (lua_State *L)
 
 static int tk_execp (lua_State *L)
 {
-	const char *path = luaL_checkstring(L, -2);
-  luaL_checktype(L, -1, LUA_TTABLE);
-  size_t n = lua_objlen(L, -1);
-	char *argv[n + 2];
+  int tbl = lua_gettop(L);
+  const char *path = luaL_checkstring(L, tbl - 1);
+  luaL_checktype(L, tbl, LUA_TTABLE);
+  size_t n = lua_objlen(L, tbl);
+  if (n > INT_MAX - 2)
+    return luaL_error(L, "execp: too many arguments");
+  luaL_checkstack(L, (int) n + 2, "execp arguments");
+  char **argv = malloc((n + 2) * sizeof(char *));
+  if (argv == NULL)
+    return tk_lua_errno(L, ENOMEM);
   argv[0] = (char *) path;
   argv[n + 1] = NULL;
-  for (int i = 1; i <= n; i ++) {
-    lua_pushinteger(L, i);
-    lua_gettable(L, -2);
-    argv[i] = (char *) luaL_checkstring(L, -1);
-    lua_pop(L, 1);
+  for (size_t i = 1; i <= n; i ++) {
+    lua_pushinteger(L, (lua_Integer) i);
+    lua_gettable(L, tbl);
+    if (lua_type(L, -1) != LUA_TSTRING) {
+      free(argv);
+      return luaL_error(L, "execp: argument %d is not a string", (int) i);
+    }
+    argv[i] = (char *) lua_tostring(L, -1);
   }
-	execvp(path, argv);
-  return tk_lua_errno(L, errno);
+  execvp(path, argv);
+  int e = errno;
+  free(argv);
+  return tk_lua_errno(L, e);
 }
 
 static int tk_fork (lua_State *L)
@@ -197,26 +207,20 @@ static int tk_ppid (lua_State *L) {
   FILE *fp;
   snprintf(procname, sizeof(procname), "/proc/%u/status", pid);
   fp = fopen(procname, "r");
-  if (fp != NULL) {
-    size_t ret = fread(buf, sizeof(char), BUFSIZ * 2 - 1, fp);
-    if (!ret) {
-      return 0;
-    } else {
-      buf[ret++] = '\0';
-    }
-  }
-  fclose(fp);
-  char *ppid_loc = strstr(buf, "\nPPid:");
-  if (ppid_loc) {
-    int ret = sscanf(ppid_loc, "\nPPid:%d", &ppid);
-    if (!ret || ret == EOF) {
-      return 1;
-    }
-    lua_pushinteger(L, ppid);
-    return 1;
-  } else {
+  if (fp == NULL)
     return 0;
-  }
+  size_t ret = fread(buf, sizeof(char), sizeof(buf) - 1, fp);
+  fclose(fp);
+  if (!ret)
+    return 0;
+  buf[ret] = '\0';
+  char *ppid_loc = strstr(buf, "\nPPid:");
+  if (ppid_loc == NULL)
+    return 0;
+  if (sscanf(ppid_loc, "\nPPid:%d", &ppid) != 1)
+    return 0;
+  lua_pushinteger(L, ppid);
+  return 1;
 #endif
 }
 
@@ -313,11 +317,11 @@ static int tk_atom (lua_State *L)
   lua_pushinteger(L, 122);
   tk_lua_callmod(L, 3, 1, "santoku.random", "str");
 
-  char shm_path[33];
-  char sem_path[33];
+  char shm_path[34];
+  char sem_path[34];
 
-  sprintf(shm_path, "/%s", luaL_checkstring(L, 1));
-  sprintf(sem_path, "/%s", luaL_checkstring(L, 2));
+  snprintf(shm_path, sizeof(shm_path), "/%s", luaL_checkstring(L, 1));
+  snprintf(sem_path, sizeof(sem_path), "/%s", luaL_checkstring(L, 2));
 
   int shm_fd = shm_open(shm_path, O_CREAT | O_RDWR, 0666);
 
@@ -395,9 +399,9 @@ static int tk_mutex (lua_State *L)
   lua_pushinteger(L, 122);
   tk_lua_callmod(L, 3, 1, "santoku.random", "str");
 
-  char sem_path[33];
+  char sem_path[34];
 
-  sprintf(sem_path, "/%s", luaL_checkstring(L, 1));
+  snprintf(sem_path, sizeof(sem_path), "/%s", luaL_checkstring(L, 1));
   lua_pop(L, 1);
 
   sem_t* sem = sem_open(sem_path, O_CREAT, 0666, 1);
