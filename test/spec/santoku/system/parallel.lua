@@ -1,4 +1,5 @@
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
 if not sys.atom then
   return
 end
@@ -19,7 +20,7 @@ for data in sys.sh({
       else
         sys.sleep(1)
         print(job, a, vals[a])
-        io.stdout:flush()
+        fs.stdout:flush()
       end
     end
   end

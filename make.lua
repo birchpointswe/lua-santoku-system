@@ -10,6 +10,11 @@ local env = {
     "lua == 5.1",
     "santoku >= 2.0.0, < 3.0.0",
   },
+  test = {
+    dependencies = {
+      "santoku-fs >= 2.0.0, < 3.0.0",
+    },
+  },
 }
 
 env.homepage = "https://github.com/birchpointswe/lua-" .. env.name
