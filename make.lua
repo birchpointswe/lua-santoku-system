@@ -1,10 +1,12 @@
+local rock = require("santoku.make.rock")
+
 local env = {
   name = "santoku-system",
-  version = "2.0.2-1",
+  version = "2.0.3-1",
   variable_prefix = "TK_SYSTEM",
   license = "MIT",
   public = true,
-  cflags = { "-pthread", "-I$(shell luarocks show santoku --rock-dir)/include/", },
+  cflags = { "-pthread", rock.include("santoku"), },
   ldflags = { "-pthread", "$(shell uname -s | grep -q Linux && echo '-lrt')" },
   dependencies = {
     "lua == 5.1",
