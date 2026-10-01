@@ -7,6 +7,7 @@ local str = require("santoku.string")
 return function (opts)
 
   local iter = pread(opts)
+  local nl = opts.skip_blank and "\n+" or "\n"
 
   local done = false
   local flushed = false
@@ -53,7 +54,7 @@ return function (opts)
       end
 
       if chunks[#chunks] then
-        local s, e = str.find(chunks[#chunks], "\n+")
+        local s, e = str.find(chunks[#chunks], nl)
         if s then
           pid_ready[pid] = { s = s, e = e }
         else
@@ -82,7 +83,7 @@ return function (opts)
         local chunk = (...)
         chunks[#chunks + 1] = chunk
 
-        local s, e = str.find(chunks[#chunks], "\n+")
+        local s, e = str.find(chunks[#chunks], nl)
         if s then
           pid_ready[pid] = { s = s, e = e }
         end

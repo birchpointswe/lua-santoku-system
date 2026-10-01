@@ -59,6 +59,32 @@ test("sh", function ()
 
   end)
 
+  test("keeps blank lines in the middle and at the end", function ()
+    local it = sys.sh({ "sh", "-c", "printf 'a\\n\\n\\nb\\n\\n'" })
+    assert(teq({ { "a" }, { "" }, { "" }, { "b" }, { "" } }, imap(apack, it)))
+  end)
+
+  test("a final newline ends the last line without adding an empty one", function ()
+    assert(teq({ { "x" } }, imap(apack, sys.sh({ "sh", "-c", "printf 'x\\n'" }))))
+    assert(teq({ { "x" } }, imap(apack, sys.sh({ "sh", "-c", "printf 'x'" }))))
+  end)
+
+  test("keeps a blank line split across reads", function ()
+    local it = sys.sh({ "sh", "-c", "printf 'a\\n'; sleep 0.2; printf '\\nb\\n'" })
+    assert(teq({ { "a" }, { "" }, { "b" } }, imap(apack, it)))
+  end)
+
+  test("skip_blank drops blank lines", function ()
+    local it = sys.sh({ "sh", "-c", "printf 'a\\n\\n\\nb\\n\\n'", skip_blank = true })
+    assert(teq({ { "a" }, { "b" } }, imap(apack, it)))
+  end)
+
+  test("jobs mode keeps each child's blank lines", function ()
+    local it = sys.sh({ jobs = 2, "sh", "-c", "printf 'a\\n\\nb\\n'" })
+    local r = arr.sort(imap(function (l) return l end, it))
+    assert(teq({ "", "", "a", "a", "b", "b" }, r))
+  end)
+
   test("should support multi-processing", function ()
 
     local it = sys.pread({
