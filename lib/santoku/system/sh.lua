@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2023 Birch Point SWE
 local pread = require("santoku.system.pread")
 
 local err = require("santoku.error")
